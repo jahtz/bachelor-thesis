@@ -149,14 +149,27 @@ class LayoutEvaluation:
 
 @click.command()
 @click.argument(
-    "ground_truth",
-    type=click.Path(exists=True, dir_okay=True, file_okay=False, resolve_path=True, path_type=Path),
+    "gt_directory",
+    type=click.Path(exists=True, dir_okay=True, file_okay=True, resolve_path=True, path_type=Path),
     required=True
 )
 @click.argument(
-    "prediction",
-    type=click.Path(exists=True, dir_okay=True, file_okay=False, resolve_path=True, path_type=Path),
+    "pred_directory",
+    type=click.Path(exists=True, dir_okay=True, file_okay=True, resolve_path=True, path_type=Path),
     required=True
+)
+@click.option(
+    "--pred-glob",
+    type=click.STRING,
+    default="*.xml",
+    show_default=True
+)
+@click.option(
+    "--image-ext",
+    help="Specify the full extension of binary images located in gt_directory",
+    type=click.STRING,
+    default=".bin.png",
+    show_default=True
 )
 @click.option(
     "-o", "--output", "output",
@@ -165,50 +178,36 @@ class LayoutEvaluation:
     metavar="JSON FILE"
 )
 @click.option(
-    "-i", "--image-suffix", "image_suffix",
-    type=click.STRING,
-    help="Specify the image extension required for fgPA.",
-    default=".bin.png",
-    show_default=True,
-    metavar="IM_EXT"
-)
-@click.option(
-    "-n", "--normalize",
-    type=click.BOOL,
-    help="Only differenciate between Foreground and Background.",
-    is_flag=True
-)
-@click.option(
     "-s", "--subtypes",
     type=click.BOOL,
     help="Split PageTypes (e.g. TextRegion) into its subclasses (e.g. paragraph, marginalia,...).",
     is_flag=True
 )
-def eval_cli(
-    ground_truth: Path, 
-    prediction: Path, 
-    output: Path | None = None,
-    image_suffix: str = ".bin.png",
-    normalize: bool = False,
-    subtypes: bool = False
-) -> None:
+def evaluate(gt_directory: Path, pred_directory: Path, pred_glob: str = "*.xml",
+             image_ext: str = ".bin.png", output: Path | None = None, subtypes: bool = False) -> None:
     results: dict[str, Result] = {}  # {filename: Result(), ...}
+
+    pred_files = sorted(pred_directory.glob(pred_glob))
+    pred_filecount = len(pred_files)
     
-    gt_files = list(ground_truth.glob("*.xml"))
-    n_files = len(gt_files)
-    
-    for i, gt_fp in enumerate(sorted(gt_files), start=1):
-        print(f"{i}/{n_files} {gt_fp.name.split('.')[0]}")
-        pred_fp = prediction.joinpath(gt_fp.name)
-        image_fp = ground_truth.joinpath(gt_fp.name.split('.')[0] + image_suffix)
+    evaluated = 0
+    for i, pred_fp in enumerate(pred_files, start=1):
+        print(f"{i}/{pred_filecount} {pred_fp.stem}")
         
+        gt_fp = gt_directory.joinpath(pred_fp.name.split('.')[0] + ".xml")
+        image_fp = gt_directory.joinpath(pred_fp.name.split('.')[0] + image_ext)
+        if not gt_fp.exists():
+            print("GT file not found: ", gt_fp)
+            continue
+        if not image_fp.exists():
+            print("Image file not found: ", image_fp)
+            continue
+            
         eval = LayoutEvaluation(
             ground_truth=PageXML.from_file(gt_fp),
             prediction=PageXML.from_file(pred_fp),
-            normalize=normalize,
             subtypes=subtypes
         )
-        
         res = Result(
             tPA=eval.tPA(),
             tPA_nobg=eval.tPA(ignore_bg=True),
@@ -218,31 +217,32 @@ def eval_cli(
             fwIoU_nobg=eval.IoU(mode="weighted", ignore_bg=True),
             fgPA=eval.fgPA(image=np.array(Image.open(image_fp).convert("1")))
         )
-        
         for key, value in asdict(res).items():
-            print(f"{key:<10}: {round(value, 4)}")
+            print(f"{key:<10}: {round(value, 4)}".rstrip())
         print()
-        results[gt_fp.name] = res
-    
+        results[pred_fp.stem] = res
+        evaluated += 1
+        
     total = Result(
-        tPA=sum(r.tPA for _, r in results.items()) / n_files,
-        tPA_nobg=sum(r.tPA_nobg for _, r in results.items()) / n_files,
-        mIoU=sum(r.mIoU for _, r in results.items()) / n_files,
-        mIoU_nobg=sum(r.mIoU_nobg for _, r in results.items()) / n_files,
-        fwIoU=sum(r.fwIoU for _, r in results.items()) / n_files,
-        fwIoU_nobg=sum(r.fwIoU_nobg for _, r in results.items()) / n_files,
-        fgPA=sum(r.fgPA for _, r in results.items()) / n_files
+        tPA=sum(r.tPA for _, r in results.items()) / evaluated,
+        tPA_nobg=sum(r.tPA_nobg for _, r in results.items()) / evaluated,
+        mIoU=sum(r.mIoU for _, r in results.items()) / evaluated,
+        mIoU_nobg=sum(r.mIoU_nobg for _, r in results.items()) / evaluated,
+        fwIoU=sum(r.fwIoU for _, r in results.items()) / evaluated,
+        fwIoU_nobg=sum(r.fwIoU_nobg for _, r in results.items()) / evaluated,
+        fgPA=sum(r.fgPA for _, r in results.items()) / evaluated
     )
-    
+
     print("\nTotal:")
     for key, value in asdict(total).items():
-            print(f"{key:<10}: {round(value, 4)}")
-    
+            print(f"{key:<10}: {round(value, 4)}".rstrip())
+
     results["Total"] = total
-    
+
     if output:
         with open(output, 'w') as f:
             json.dump({filename: asdict(result) for filename, result in results.items()}, f)
 
+
 if __name__ == "__main__":
-    eval_cli()
+    evaluate()
