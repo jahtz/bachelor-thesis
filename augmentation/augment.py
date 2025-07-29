@@ -39,9 +39,14 @@ transform_limits = A.Compose([
 @click.command()
 @click.argument(
     "images",
-    type=click.Path(exists=False, dir_okay=False, file_okay=True, resolve_path=True, path_type=Path),
+    type=click.Path(exists=True, dir_okay=False, file_okay=True, resolve_path=True, path_type=Path),
     required=True,
     nargs=-1
+)
+@click.option(
+    "-o", "--output",
+    type=click.Path(exists=False, dir_okay=True, file_okay=False, resolve_path=True, path_type=Path),
+    required=True
 )
 @click.option(
     "-n",
@@ -50,7 +55,7 @@ transform_limits = A.Compose([
     default=5,
     show_default=True
 )
-def main(images: list[Path], n: int = 5):
+def main(images: list[Path], output: Path, n: int = 5):
     image_count = len(images)
     for i, image in enumerate(sorted(images), start=1):
         print(f"{i}/{image_count}: {image.as_posix()}")
@@ -60,10 +65,13 @@ def main(images: list[Path], n: int = 5):
         im = np.array(im)
         
         for version in range(n):
+            target_dir = output.joinpath(f"aug_{version+1}")
+            if not target_dir.exists():
+                target_dir.mkdir(exist_ok=True)
             transformed = transform(image=im)
             im_trans = Image.fromarray(transformed["image"])
-            im_trans.save(image.parent.joinpath(image.name.split('.')[0] + f"_aug{version+1}.png"), icc_profile=icc_profile)
-            copy(image.parent.joinpath(image.name.split('.')[0] + ".xml"), image.parent.joinpath(image.name.split('.')[0] + f"_aug{version+1}.xml"))
+            im_trans.save(target_dir.joinpath(image.name), icc_profile=icc_profile)
+            copy(image.parent.joinpath(image.name.split('.')[0] + ".xml"), target_dir.joinpath(image.name.split('.')[0] + ".xml"))
         
 
 if __name__ == "__main__":
