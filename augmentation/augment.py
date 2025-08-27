@@ -2,10 +2,10 @@ from pathlib import Path
 import random
 from shutil import copy
 
-import numpy as np
-import click
-from PIL import Image
 import albumentations as A
+import click
+import numpy as np
+from PIL import Image
 
 
 # set seeds for reproducebility
@@ -20,7 +20,6 @@ transform = A.Compose([
     ], p=1.0),
     A.HueSaturationValue(hue_shift_limit=15, sat_shift_limit=20, val_shift_limit=15, p=0.3),
 ], seed=42)
-
 
 transform_limits = A.Compose([
     A.OneOf([
@@ -71,7 +70,10 @@ def main(images: list[Path], output: Path, n: int = 5):
             transformed = transform(image=im)
             im_trans = Image.fromarray(transformed["image"])
             im_trans.save(target_dir.joinpath(image.name), icc_profile=icc_profile)
-            copy(image.parent.joinpath(image.name.split('.')[0] + ".xml"), target_dir.joinpath(image.name.split('.')[0] + ".xml"))
+            copy(
+                image.parent.joinpath(image.name.split('.')[0] + ".xml"), 
+                target_dir.joinpath(image.name.split('.')[0] + ".xml")
+            )
         
 
 if __name__ == "__main__":

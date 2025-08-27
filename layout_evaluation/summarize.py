@@ -4,6 +4,7 @@ import statistics
 
 import click
 
+
 def print_total(data: list[dict[str, float]]):
     total = {}
     
@@ -25,7 +26,6 @@ def print_stdev(data: list[dict[str, float]]):
                 total[key] = []
             total[key].append(value)
     print(f"{'StDev':<11}", *[f"{str(round(statistics.stdev(value), 4)):<11}" for key, value in total.items()])
-    
 
 
 @click.command()

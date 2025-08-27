@@ -186,6 +186,8 @@ def shrink(
         cv2.fillPoly(region_mask, [region_array], (255, 255, 255))
         im_masked = im & region_mask
         
+        cv2.imwrite("/home/janik/Documents/0masked.jpg", ~im_masked)
+        
         log.debug("Calculating region contour scales")
         scale = estimate_scales(im_masked, region.pagetype)
         log.debug(f"Estimated scale: {scale}")
@@ -193,10 +195,12 @@ def shrink(
         log.debug("Dilate text considering the median contour scale")
         dilation_kernel = np.ones((scale, scale), np.uint8)
         im_dilated = cv2.dilate(im_masked, dilation_kernel, iterations=2)
+        cv2.imwrite("/home/janik/Documents/1dilated.jpg", ~im_dilated)
         
         log.debug("Close gaps between symbols by provided smoothing factor")
         smooth_kernel = np.ones((round(scale * smoothing), round(scale * smoothing)), np.uint8)
         im_smoothed = cv2.morphologyEx(im_dilated, cv2.MORPH_CLOSE, smooth_kernel)
+        cv2.imwrite("/home/janik/Documents/2morphed.jpg", ~im_smoothed)
         
         log.debug("Calculting content contours")
         contours = cv2.findContours(im_smoothed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)

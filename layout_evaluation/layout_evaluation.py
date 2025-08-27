@@ -104,7 +104,7 @@ class LayoutEvaluation:
         
         Requires a binary image input
         """
-        foreground = image > 0
+        foreground = image == 0
         correct = (self.gt_mask == self.pred_mask) & foreground
         total = np.sum(foreground)
         return float(np.sum(correct) / total) if total > 0 else 0.0
@@ -242,7 +242,7 @@ def evaluate(gt_directory: Path, pred_directory: Path, pred_glob: str = "*.xml",
     if output:
         with open(output, 'w') as f:
             json.dump({filename: asdict(result) for filename, result in results.items()}, f)
-
+            
 
 if __name__ == "__main__":
     evaluate()
