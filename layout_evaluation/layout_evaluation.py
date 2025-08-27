@@ -97,7 +97,7 @@ class LayoutEvaluation:
         
         FgPA = sum_x(b_x * c_x) / sum_x(b_x)
         x is a Pixel, 
-        b_x: 1 if x is a foreground (value > 0) pixel else 0 ,
+        b_x: 1 if x is a foreground (value == 0) pixel else 0 ,
         c_x: 1 if the pixel x was correctly classified else 0.
         
         For Foreground Pixel Error (FgPE) calculate FgPE = 1 - FgPA
